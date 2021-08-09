@@ -50,7 +50,8 @@ func createTestUser(router *mux.Router, userName string) (model.CreateUserRespon
 	return user, nil
 }
 
-func createValidTestNote(router *mux.Router, note model.CreateNoteRequest, token string) error {
+func createValidTestNote(router *mux.Router, note model.CreateNoteRequest, token string) (int, error) {
+	var createdNote model.CreateNoteResponse
 	j, _ := json.Marshal(note)
 	request, _ := http.NewRequest("POST", "/notes", bytes.NewBuffer(j))
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
@@ -60,10 +61,15 @@ func createValidTestNote(router *mux.Router, note model.CreateNoteRequest, token
 	have := response.Code
 	want := 200
 	if have != want {
-		return fmt.Errorf("create should have succeeded, have: %v, want: %v", have, want)
+		return 0, fmt.Errorf("create should have succeeded, have: %v, want: %v", have, want)
 	}
 
-	return nil
+	err := json.NewDecoder(response.Body).Decode(&createdNote)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse create note response")
+	}
+
+	return createdNote.NoteID, nil
 }
 
 func TestCreateNote(t *testing.T) {
@@ -86,7 +92,7 @@ func TestCreateNote(t *testing.T) {
 		t.Errorf("create should have failed with an error code, have: %v, want: %v", have, want)
 	}
 
-	err = createValidTestNote(router, note, user.Token)
+	_, err = createValidTestNote(router, note, user.Token)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
@@ -103,15 +109,17 @@ func TestUpdateNote(t *testing.T) {
 
 	// Create a note for the user
 	note := model.CreateNoteRequest{Content: "This is a test note"}
-	err = createValidTestNote(router, note, user.Token)
+	newNoteID, err := createValidTestNote(router, note, user.Token)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
 
+	url := "/notes/" + fmt.Sprintf("%d", newNoteID)
+
 	// Try to update the note without a token
 	note = model.CreateNoteRequest{Content: "This is a test note"}
 	j, _ := json.Marshal(note)
-	request, _ := http.NewRequest("PUT", "/notes/1", bytes.NewBuffer(j))
+	request, _ := http.NewRequest("PUT", url, bytes.NewBuffer(j))
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	response := httptest.NewRecorder()
 	router.ServeHTTP(response, request)
@@ -122,9 +130,9 @@ func TestUpdateNote(t *testing.T) {
 	}
 
 	// Update the note with the correct token
-	note = model.CreateNoteRequest{Content: "This is an updated note"}
-	j, _ = json.Marshal(note)
-	request, _ = http.NewRequest("PUT", "/notes/1", bytes.NewBuffer(j))
+	updateNote := model.UpdateNoteRequest{Content: "This is an updated note"}
+	j, _ = json.Marshal(updateNote)
+	request, _ = http.NewRequest("PUT", url, bytes.NewBuffer(j))
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	request.Header.Set("Authorization", "Bearer " + user.Token)
 	response = httptest.NewRecorder()
@@ -136,8 +144,8 @@ func TestUpdateNote(t *testing.T) {
 	}
 
 	// Try to update a note that doesn't exist
-	note = model.CreateNoteRequest{Content: "This is an updated note"}
-	j, _ = json.Marshal(note)
+	updateNote.Content = "This is an updated note"
+	j, _ = json.Marshal(updateNote)
 	request, _ = http.NewRequest("PUT", "/notes/999", bytes.NewBuffer(j))
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	request.Header.Set("Authorization", "Bearer " + user.Token)
@@ -153,7 +161,7 @@ func TestUpdateNote(t *testing.T) {
 	_ = lib.InsertUserNoteDB(12345, 777)
 
 	// Try to update the note that doesn't belong to our user
-	note = model.CreateNoteRequest{Content: "This is an updated note"}
+	updateNote.Content = "This is an updated note"
 	j, _ = json.Marshal(note)
 	request, _ = http.NewRequest("PUT", "/notes/777", bytes.NewBuffer(j))
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
@@ -178,13 +186,14 @@ func TestGetNote(t *testing.T) {
 
 	// Create a note for the user
 	note := model.CreateNoteRequest{Content: "This is a test note"}
-	err = createValidTestNote(router, note, user.Token)
+	newNoteID, err := createValidTestNote(router, note, user.Token)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
 
 	// Get the note we just created
-	request, _ := http.NewRequest("GET", "/notes/1", nil)
+	url := "/notes/" + fmt.Sprintf("%d", newNoteID)
+	request, _ := http.NewRequest("GET", url, nil)
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	request.Header.Set("Authorization", "Bearer " + user.Token)
 	response := httptest.NewRecorder()
@@ -283,7 +292,7 @@ func TestDeleteNote(t *testing.T) {
 	var note model.CreateNoteRequest
 	for i := 0; i < 10; i++ {
 		note = model.CreateNoteRequest{Content: "This is a test note"}
-		err = createValidTestNote(router, note, user.Token)
+		_, err = createValidTestNote(router, note, user.Token)
 		if err != nil {
 			t.Errorf(err.Error())
 		}

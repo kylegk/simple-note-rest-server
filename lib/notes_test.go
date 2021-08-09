@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"fmt"
 	"github.com/kylegk/notes/app"
 	"github.com/kylegk/notes/model"
 	"testing"
@@ -148,7 +147,7 @@ func TestDeleteUserNoteDB(t *testing.T) {
 	want = 0
 	have, err = DeleteUserNoteDB(userNote.NoteID)
 	if err != nil {
-		fmt.Errorf("error %s", err.Error())
+		t.Errorf("error %s", err.Error())
 	}
 	if have != want {
 		t.Errorf("deleted an incorrect number of rows, have: %v, want: %v", have, want)

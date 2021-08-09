@@ -108,7 +108,7 @@ All of the methods below, except for user creation require a valid token. This t
 
 > Method: **DELETE**
 
-> Deletes a note and the relationship between the user and the note. Requires a valid auth token for the user (i.e. the note must be owned by the user performing the delete).
+> Deletes a note and the relationship between the user and the note. Requires a valid auth token for the user (i.e. the note must be owned by the user performing the deletion).
 
 > `Response:`
 

@@ -99,8 +99,8 @@ func TestDB_Delete(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to delete note: %s", err.Error())
 	}
-	want := len(notes) - 1
+	want := 1
 	if have != want {
-		fmt.Errorf("deleted the wrong number of notes, have: %v, want: %v", have, want)
+		t.Errorf("deleted the wrong number of notes, have: %v, want: %v", have, want)
 	}
 }
